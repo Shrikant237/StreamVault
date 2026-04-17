@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Search — StreamVault{% endblock %}
+{% block sb_search %}active{% endblock %}
+
+{% block head %}
+<style>
+.search-bar{display:flex;gap:.65rem;margin-bottom:1.75rem;max-width:560px}
+.search-bar input{flex:1;padding:.65rem .9rem;background:var(--s2);border:1px solid var(--border);
+                  border-radius:10px;color:var(--text);font-size:.9rem;outline:none;font-family:inherit}
+.search-bar input:focus{border-color:#444}
+.search-bar button{padding:.65rem 1.25rem;background:var(--s2);border:1px solid var(--border);
+                   border-radius:10px;color:var(--text);cursor:pointer;font-family:inherit;font-size:.875rem}
+.search-bar button:hover{background:var(--s3)}
+.result-info{color:var(--muted);font-size:.875rem;margin-bottom:1.25rem}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-bar">
+  <input type="text" id="sq" placeholder="Search videos..." onkeydown="if(event.key==='Enter')run()"/>
+  <button onclick="run()">Search</button>
+</div>
+<div class="result-info" id="rinfo"></div>
+<div class="video-grid" id="rgrid">
+  <div class="empty-state"><div class="icon">🔍</div><p>Search for videos above.</p></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const params = new URLSearchParams(location.search);
+const initQ  = params.get('q') || '';
+if(initQ){
+  document.getElementById('sq').value = initQ;
+  document.getElementById('nav-q').value = initQ;
+  run();
+}
+
+async function run(){
+  const q = document.getElementById('sq').value.trim();
+  if(!q) return;
+  history.replaceState(null,'','/search?q='+encodeURIComponent(q));
+  document.getElementById('nav-q').value = q;
+  document.getElementById('rgrid').innerHTML = '<div class="spinner-wrap">Searching...</div>';
+  document.getElementById('rinfo').textContent = '';
+  try{
+    const r = await fetch(`/api/videos?q=${encodeURIComponent(q)}&limit=24`);
+    const d = await r.json();
+    document.getElementById('rinfo').textContent = `${d.total} result${d.total!==1?'s':''} for "${q}"`;
+    const grid = document.getElementById('rgrid');
+    if(!d.videos.length){
+      grid.innerHTML = `<div class="empty-state"><div class="icon">😕</div><p>No results for "<strong>${q}</strong>"</p></div>`;
+    } else {
+      grid.innerHTML = '';
+      d.videos.forEach(v => { const el=document.createElement('div'); el.innerHTML=videoCard(v); grid.appendChild(el.firstElementChild); });
+    }
+  } catch(e){ document.getElementById('rgrid').innerHTML='<div class="empty-state">Search failed. Try again.</div>'; }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Channel — StreamVault{% endblock %}
+
+{% block head %}
+<style>
+.ch-header{background:var(--surface);border:1px solid var(--border);border-radius:14px;
+           padding:1.75rem;margin-bottom:1.75rem;display:flex;align-items:center;gap:1.25rem}
+.ch-av{width:72px;height:72px;border-radius:50%;background:var(--accent);flex-shrink:0;
+       display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700}
+.ch-name{font-size:1.4rem;font-weight:700}
+.ch-stats{color:var(--muted);font-size:.875rem;margin-top:.3rem}
+.ch-bio{color:var(--muted);font-size:.875rem;margin-top:.4rem;max-width:480px}
+.ch-joined{color:var(--muted2);font-size:.78rem;margin-top:.35rem}
+@media(max-width:540px){.ch-header{flex-direction:column;text-align:center}}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="ch-header" class="ch-header"><span style="color:var(--muted)">Loading...</span></div>
+<h2 class="section-title" id="vids-title" style="display:none">Videos</h2>
+<div class="video-grid" id="ch-grid"></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const username = location.pathname.split('/').pop();
+
+async function loadChannel(){
+  try{
+    const r = await fetch(`/api/channel/${username}`);
+    if(!r.ok){ document.getElementById('ch-header').innerHTML='<span style="color:var(--muted)">Channel not found.</span>'; return; }
+    const {user:u, videos} = await r.json();
+    document.title = u.username + ' — StreamVault';
+    const joined = new Date(u.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long'});
+    document.getElementById('ch-header').innerHTML = `
+      <div class="ch-av">${u.username[0].toUpperCase()}</div>
+      <div>
+        <div class="ch-name">${u.username}</div>
+        <div class="ch-stats">${u.video_count} video${u.video_count!==1?'s':''}</div>
+        ${u.bio ? `<div class="ch-bio">${u.bio}</div>` : ''}
+        <div class="ch-joined">Joined ${joined}</div>
+      </div>`;
+    document.getElementById('vids-title').style.display = 'block';
+    const grid = document.getElementById('ch-grid');
+    if(!videos.length){
+      grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No videos uploaded yet.</p></div>';
+    } else {
+      videos.forEach(v => {
+        const el = document.createElement('div');
+        el.innerHTML = videoCard({...v, uploader:{id:u.id, username:u.username}});
+        grid.appendChild(el.firstElementChild);
+      });
+    }
+  } catch(e){ console.error(e); }
+}
+loadChannel();
+</script>
+{% endblock %}

@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>StreamVault — Sign In</title>
+  
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--bg:#f0ebe0;--surface:#fffdf7;--s2:#ede8dc;--s3:#e0dace;--border:#d4cebc;
+          --text:#2c2a1e;--muted:#7a7560;--accent:#5a6e3a;--accent-h:#47582e}
+    body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);
+         min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.5rem}
+    .page{display:flex;width:100%;max-width:860px;min-height:520px;border-radius:18px;
+          overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 40px rgba(0,0,0,.12)}
+
+    /* left */
+    .brand{flex:1;background:#3d4f24;padding:2.5rem;display:flex;flex-direction:column;
+           justify-content:space-between;border-right:1px solid rgba(0,0,0,.1)}
+    .logo{display:flex;align-items:center;gap:.65rem}
+    .logo-box{width:38px;height:38px;background:var(--accent);border-radius:10px;
+              display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px}
+    .logo-name{font-size:1.2rem;font-weight:700;color:#f5f0e8}
+    .tagline{font-size:1.6rem;font-weight:700;line-height:1.3;color:#f5f0e8}
+    .tagline em{color:#c5d89a;font-style:normal}
+    .tag-sub{color:rgba(245,240,232,.7);font-size:.875rem;margin-top:.5rem;line-height:1.6}
+    .feats{list-style:none;display:flex;flex-direction:column;gap:.5rem}
+    .feats li{display:flex;align-items:center;gap:.55rem;font-size:.82rem;color:rgba(245,240,232,.75)}
+    .feat-dot{width:5px;height:5px;border-radius:50%;background:#c5d89a;flex-shrink:0}
+
+    /* right */
+    .auth{width:360px;flex-shrink:0;background:var(--surface);padding:2.25rem;display:flex;flex-direction:column;justify-content:center}
+    .tabs{display:flex;background:var(--s2);border-radius:9px;padding:3px;margin-bottom:1.75rem}
+    .tab{flex:1;padding:.5rem;text-align:center;font-size:.85rem;font-weight:500;
+         border:none;background:transparent;border-radius:7px;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;transition:.15s}
+    .tab.active{background:var(--surface);color:var(--accent)}
+    .tab:not(.active){color:var(--muted)}
+    .panel{display:none}.panel.active{display:block}
+    .panel-title{font-size:1.15rem;font-weight:600;margin-bottom:.25rem}
+    .panel-sub{color:var(--muted);font-size:.82rem;margin-bottom:1.4rem}
+    .field{margin-bottom:.9rem}
+    .field label{display:block;font-size:.72rem;font-weight:500;color:var(--muted);
+                 text-transform:uppercase;letter-spacing:.06em;margin-bottom:.35rem}
+    .field input{width:100%;padding:.65rem .85rem;background:var(--s2);border:1px solid var(--border);
+                 border-radius:9px;color:var(--text);font-size:.9rem;outline:none;
+                 font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;transition:.15s}
+    .field input:focus{border-color:var(--accent);background:var(--s3)}
+    .btn{width:100%;padding:.75rem;background:var(--accent);border:none;border-radius:9px;
+         color:#fff;font-weight:600;font-size:.95rem;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;
+         margin-top:.4rem;transition:.15s;position:relative}
+    .btn:hover{background:var(--accent-h)}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.35);
+             border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;
+             position:absolute;left:50%;top:50%;transform:translate(-50%,-50%)}
+    .btn.loading .btn-label{visibility:hidden}
+    .btn.loading .spinner{display:block}
+    @keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+    .alert{padding:.6rem .85rem;border-radius:8px;font-size:.83rem;margin-top:.75rem;display:none}
+    .alert.show{display:block}
+    .alert.error{background:#fdf0f0;color:#b03a2e;border:1px solid #f5c6c0}
+    .alert.success{background:#f0f7f0;color:#2e7d32;border:1px solid #c8e6c9}
+
+    @media(max-width:660px){.brand{display:none}.page{max-width:400px}.auth{width:100%}}
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="brand">
+    <div class="logo">
+      <div class="logo-box">▶</div>
+      <span class="logo-name">StreamVault</span>
+    </div>
+    <div>
+      <div class="tagline">Your videos,<br><em>your stage.</em></div>
+      <div class="tag-sub">Upload, share, and discover videos from creators around the world.</div>
+    </div>
+    <ul class="feats">
+      <li><span class="feat-dot"></span>Upload videos up to 500 MB</li>
+      <li><span class="feat-dot"></span>Stream with full seek support</li>
+      <li><span class="feat-dot"></span>Your own channel and profile</li>
+      <li><span class="feat-dot"></span>Search across all videos</li>
+    </ul>
+  </div>
+
+  <div class="auth">
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('login')">Log in</button>
+      <button class="tab"        onclick="switchTab('signup')">Sign up</button>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="panel active" id="panel-login">
+      <p class="panel-title">Welcome back</p>
+      <p class="panel-sub">Sign in to continue</p>
+      <div class="field">
+        <label>Username or email</label>
+        <input type="text" id="login-id" placeholder="you@example.com" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-pw" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+      <button class="btn" id="btn-login" onclick="doLogin()">
+        <span class="btn-label">Log in</span><span class="spinner"></span>
+      </button>
+      <div class="alert" id="login-alert"></div>
+    </div>
+
+    <!-- SIGNUP -->
+    <div class="panel" id="panel-signup">
+      <p class="panel-title">Create account</p>
+      <p class="panel-sub">Join StreamVault for free</p>
+      <div class="field">
+        <label>Username</label>
+        <input type="text" id="su-user" placeholder="cooluser" autocomplete="username"/>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="su-email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="su-pw" placeholder="Min. 6 characters" autocomplete="new-password"/>
+      </div>
+      <button class="btn" id="btn-signup" onclick="doSignup()">
+        <span class="btn-label">Create account</span><span class="spinner"></span>
+      </button>
+      <div class="alert" id="signup-alert"></div>
+    </div>
+  </div>
+
+</div>
+<script>
+  // Already logged in? Go straight to home
+  (function(){
+    const t = localStorage.getItem('sv_token');
+    if(!t) return;
+    fetch('/api/me', {headers:{'Authorization':'Bearer '+t}})
+      .then(r => { if(r.ok) window.location.replace('/home'); else localStorage.removeItem('sv_token'); })
+      .catch(()=>{});
+  })();
+
+  function switchTab(tab){
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0)===(tab==='login')));
+    document.getElementById('panel-login').classList.toggle('active', tab==='login');
+    document.getElementById('panel-signup').classList.toggle('active', tab==='signup');
+    clearAlerts();
+  }
+
+  function clearAlerts(){
+    ['login-alert','signup-alert'].forEach(id => {
+      const el = document.getElementById(id);
+      el.className = 'alert'; el.textContent = '';
+    });
+  }
+
+  function showAlert(id, msg, type='error'){
+    const el = document.getElementById(id);
+    el.textContent = msg; el.className = 'alert '+type+' show';
+  }
+
+  function setLoading(btnId, on){
+    const b = document.getElementById(btnId);
+    b.classList.toggle('loading', on); b.disabled = on;
+  }
+
+  async function doLogin(){
+    const identifier = document.getElementById('login-id').value.trim();
+    const password   = document.getElementById('login-pw').value;
+    clearAlerts();
+    if(!identifier || !password){ showAlert('login-alert', 'Please fill in all fields.'); return; }
+    setLoading('btn-login', true);
+    try{
+      const r = await fetch('/api/login', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({identifier, password})
+      });
+      const d = await r.json();
+      if(!r.ok){ showAlert('login-alert', d.error || 'Login failed.'); return; }
+      localStorage.setItem('sv_token', d.token);
+      window.location.href = '/home';
+    } catch(e){
+      showAlert('login-alert', 'Network error. Make sure the server is running.');
+    } finally {
+      setLoading('btn-login', false);
+    }
+  }
+
+  async function doSignup(){
+    const username = document.getElementById('su-user').value.trim();
+    const email    = document.getElementById('su-email').value.trim();
+    const password = document.getElementById('su-pw').value;
+    clearAlerts();
+    if(!username || !email || !password){ showAlert('signup-alert', 'Please fill in all fields.'); return; }
+    setLoading('btn-signup', true);
+    try{
+      const r = await fetch('/api/signup', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username, email, password})
+      });
+      console.log('respomse', r);
+      const d = await r.json();
+      if(!r.ok){ showAlert('signup-alert', d.error || 'Signup failed.'); return; }
+      localStorage.setItem('sv_token', d.token);
+      window.location.href = '/home';
+    } catch(e){
+      showAlert('signup-alert', 'Network error. Make sure the server is running.');
+    } finally {
+      setLoading('btn-signup', false);
+    }
+  }
+
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Enter') return;
+    if(document.getElementById('panel-login').classList.contains('active')) doLogin();
+    else doSignup();
+  });
+</script>
+</body>
+</html>

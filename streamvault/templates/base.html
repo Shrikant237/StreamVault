@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}StreamVault{% endblock %}</title>
+  
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#f5f0e8;--surface:#fffdf7;--s2:#ede8dc;--s3:#e0dace;
+      --border:#d4cebc;--text:#2c2a1e;--muted:#7a7560;--muted2:#b0a98e;
+      --accent:#5a6e3a;--accent-h:#47582e;--nav:60px;--sidebar:220px;
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+    /* NAV */
+    nav{position:fixed;top:0;left:0;right:0;height:var(--nav);background:var(--surface);
+        border-bottom:1px solid var(--border);display:flex;align-items:center;
+        padding:0 1.25rem;gap:1rem;z-index:100}
+    .nav-logo{display:flex;align-items:center;gap:.55rem;text-decoration:none;
+              font-size:1.1rem;font-weight:700;color:var(--text);flex-shrink:0}
+    .logo-box{width:30px;height:30px;background:var(--accent);border-radius:8px;
+              display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff}
+    .nav-search{flex:1;max-width:520px;display:flex;gap:.5rem}
+    .nav-search input{flex:1;padding:.45rem .9rem;background:var(--s2);border:1px solid var(--border);
+                      border-radius:20px;color:var(--text);font-size:.875rem;outline:none;font-family:inherit}
+    .nav-search input:focus{border-color:var(--accent)}
+    .nav-search button{padding:.45rem 1.1rem;background:var(--s2);border:1px solid var(--border);
+                       border-radius:20px;color:var(--text);cursor:pointer;font-size:.82rem;font-family:inherit}
+    .nav-search button:hover{background:var(--s3)}
+    .nav-right{margin-left:auto;display:flex;align-items:center;gap:.65rem}
+    .btn-upload{padding:.4rem .9rem;background:var(--s2);border:1px solid var(--border);
+                border-radius:20px;color:var(--text);text-decoration:none;font-size:.82rem;
+                display:flex;align-items:center;gap:.35rem}
+    .btn-upload:hover{background:var(--s3)}
+    .btn-signin{padding:.4rem .9rem;background:transparent;border:1px solid var(--accent);
+                border-radius:20px;color:var(--accent);font-size:.82rem;cursor:pointer;font-family:inherit}
+    .btn-signin:hover{background:rgba(90,110,58,.1)}
+    .avatar-btn{width:32px;height:32px;border-radius:50%;background:var(--accent);
+                display:flex;align-items:center;justify-content:center;font-weight:600;
+                font-size:.8rem;cursor:pointer;border:none;color:#fff;text-decoration:none}
+    #nav-signed-in{display:none;align-items:center;gap:.65rem}
+
+    /* SIDEBAR */
+    .sidebar{position:fixed;top:var(--nav);left:0;bottom:0;width:var(--sidebar);
+             background:var(--surface);border-right:1px solid var(--border);padding:.75rem 0;overflow-y:auto;z-index:50}
+    .sidebar a{display:flex;align-items:center;gap:.65rem;padding:.55rem 1rem;
+               color:var(--muted);text-decoration:none;font-size:.875rem;border-radius:8px;margin:1px .4rem}
+    .sidebar a:hover{background:var(--s2);color:var(--accent)}
+    .sidebar a.active{background:var(--s2);color:var(--accent)}
+    .sidebar .icon{font-size:1rem;width:18px;text-align:center}
+    .sb-section{padding:.5rem 1rem .2rem;font-size:.7rem;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-top:.4rem}
+    #sb-user-links{display:none}
+
+    /* MAIN */
+    .main{margin-left:var(--sidebar);margin-top:var(--nav);padding:1.75rem;min-height:calc(100vh - var(--nav))}
+
+    /* VIDEO CARD */
+    .video-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.1rem}
+    .video-card{text-decoration:none;color:inherit;display:block}
+    .video-thumb{position:relative;border-radius:10px;overflow:hidden;aspect-ratio:16/9;background:var(--s2)}
+    .video-thumb img{width:100%;height:100%;object-fit:cover}
+    .no-thumb{display:flex;align-items:center;justify-content:center;height:100%;font-size:2rem;color:var(--muted2)}
+    .video-info{display:flex;gap:.65rem;padding:.6rem 0 .2rem}
+    .ch-av{width:34px;height:34px;border-radius:50%;background:var(--accent);flex-shrink:0;
+           display:flex;align-items:center;justify-content:center;font-weight:600;font-size:.75rem}
+    .video-meta h3{font-size:.9rem;font-weight:500;line-height:1.3;
+                   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+    .video-meta .ch-name{font-size:.78rem;color:var(--muted);margin-top:.15rem}
+    .video-meta .stats{font-size:.78rem;color:var(--muted)}
+
+    /* MISC */
+    .section-title{font-size:1.15rem;font-weight:600;margin-bottom:1.1rem}
+    .spinner-wrap{text-align:center;padding:3rem;color:var(--muted)}
+    .empty-state{text-align:center;padding:4rem 2rem;color:var(--muted)}
+    .empty-state .icon{font-size:2.5rem;margin-bottom:.75rem}
+
+    @media(max-width:700px){.sidebar{display:none}.main{margin-left:0}.nav-search{max-width:none}}
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+
+<nav>
+  <a href="/home" class="nav-logo">
+    <div class="logo-box">▶</div>StreamVault
+  </a>
+  <div class="nav-search">
+    <input type="text" id="nav-q" placeholder="Search videos..." onkeydown="if(event.key==='Enter')goSearch()"/>
+    <button onclick="goSearch()">Search</button>
+  </div>
+  <div class="nav-right">
+    <div id="nav-signed-out">
+      <button class="btn-signin" onclick="window.location.href='/'">Sign in</button>
+    </div>
+    <div id="nav-signed-in" style="display:none">
+      <a href="/upload" class="btn-upload">⬆ Upload</a>
+      <a href="#" class="avatar-btn" id="nav-avatar"></a>
+    </div>
+  </div>
+</nav>
+
+<aside class="sidebar">
+  <a href="/home" class="{% block sb_home %}{% endblock %}"><span class="icon">🏠</span>Home</a>
+  <a href="/search" class="{% block sb_search %}{% endblock %}"><span class="icon">🔍</span>Explore</a>
+  <div id="sb-user-links" style="display:none">
+    <div class="sb-section">You</div>
+    <a href="#" id="sb-channel"><span class="icon">👤</span>Your Channel</a>
+    <a href="/upload"><span class="icon">⬆</span>Upload</a>
+    <a href="#" onclick="doLogout(event)"><span class="icon">🚪</span>Sign out</a>
+  </div>
+</aside>
+
+<main class="main">
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+const API = '';
+let currentUser = null;
+
+function getToken(){ return localStorage.getItem('sv_token'); }
+function authHeaders(){ return {'Content-Type':'application/json','Authorization':'Bearer '+getToken()}; }
+
+async function loadUser(){
+  const t = getToken();
+  if(!t){ updateUI(); return; }
+  try{
+    const r = await fetch('/api/me', {headers: authHeaders()});
+    if(r.ok){
+      const d = await r.json();
+      currentUser = d.user;
+    } else {
+      localStorage.removeItem('sv_token');
+    }
+  } catch(e){}
+  updateUI();
+}
+
+function updateUI(){
+  if(currentUser){
+    document.getElementById('nav-signed-out').style.display = 'none';
+    document.getElementById('nav-signed-in').style.display  = 'flex';
+    document.getElementById('sb-user-links').style.display  = 'block';
+    const av = document.getElementById('nav-avatar');
+    av.textContent = currentUser.username[0].toUpperCase();
+    av.href = '/channel/' + currentUser.username;
+    document.getElementById('sb-channel').href = '/channel/' + currentUser.username;
+  } else {
+    document.getElementById('nav-signed-out').style.display = 'block';
+    document.getElementById('nav-signed-in').style.display  = 'none';
+    document.getElementById('sb-user-links').style.display  = 'none';
+  }
+}
+
+function doLogout(e){
+  if(e) e.preventDefault();
+  localStorage.removeItem('sv_token');
+  window.location.href = '/';
+}
+
+function goSearch(){
+  const q = document.getElementById('nav-q').value.trim();
+  if(q) window.location.href = '/search?q=' + encodeURIComponent(q);
+}
+
+function timeAgo(iso){
+  const s = (Date.now() - new Date(iso).getTime()) / 1000;
+  if(s < 60)     return 'just now';
+  if(s < 3600)   return Math.floor(s/60)   + 'm ago';
+  if(s < 86400)  return Math.floor(s/3600) + 'h ago';
+  if(s < 604800) return Math.floor(s/86400)+ 'd ago';
+  return new Date(iso).toLocaleDateString();
+}
+
+function fmtViews(n){
+  if(n >= 1e6) return (n/1e6).toFixed(1) + 'M views';
+  if(n >= 1e3) return (n/1e3).toFixed(1) + 'K views';
+  return n + ' views';
+}
+
+function videoCard(v){
+  const thumb   = v.thumbnail ? `<img src="${v.thumbnail}" loading="lazy"/>` : `<div class="no-thumb">▶</div>`;
+  const uname   = v.uploader  ? v.uploader.username : 'Unknown';
+  const initial = uname[0].toUpperCase();
+  return `<a href="/watch/${v.id}" class="video-card">
+    <div class="video-thumb">${thumb}</div>
+    <div class="video-info">
+      <div class="ch-av">${initial}</div>
+      <div class="video-meta">
+        <h3>${v.title}</h3>
+        <div class="ch-name"><a href="/channel/${uname}" style="color:inherit;text-decoration:none" onclick="event.stopPropagation()">${uname}</a></div>
+        <div class="stats">${fmtViews(v.views)} · ${timeAgo(v.created_at)}</div>
+      </div>
+    </div>
+  </a>`;
+}
+
+loadUser();
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

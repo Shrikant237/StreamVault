@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}StreamVault — Home{% endblock %}
+{% block sb_home %}active{% endblock %}
+
+{% block head %}
+<style>
+.feed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
+.feed-header h2{font-size:1.15rem;font-weight:600;margin:0}
+
+/* toggle switch */
+.toggle-wrap{display:flex;align-items:center;gap:.65rem;background:var(--s2);
+             border:1px solid var(--border);border-radius:20px;padding:.4rem .85rem}
+.toggle-label{font-size:.82rem;color:var(--muted);white-space:nowrap}
+.toggle-label.active{color:var(--text);font-weight:500}
+.switch{position:relative;width:42px;height:24px;flex-shrink:0}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:24px;
+        cursor:pointer;transition:.25s}
+.slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;
+                background:#fff;border-radius:50%;transition:.25s}
+.switch input:checked + .slider{background:var(--accent)}
+.switch input:checked + .slider::before{transform:translateX(18px);background:#fff}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="feed-header">
+  <h2 id="feed-title">Latest Videos</h2>
+  <div class="toggle-wrap" id="toggle-wrap" style="display:none">
+    <span class="toggle-label active" id="lbl-all">All Videos</span>
+    <label class="switch">
+      <input type="checkbox" id="my-toggle" onchange="onToggle(this.checked)"/>
+      <span class="slider"></span>
+    </label>
+    <span class="toggle-label" id="lbl-mine">My Videos</span>
+  </div>
+</div>
+
+<div class="video-grid" id="video-grid">
+  <div class="spinner-wrap">Loading videos...</div>
+</div>
+<div style="text-align:center;margin-top:1.5rem">
+  <button id="btn-more" style="display:none;padding:.6rem 2rem;background:var(--s2);
+    border:1px solid var(--border);border-radius:20px;color:var(--text);
+    cursor:pointer;font-family:inherit;font-size:.875rem" onclick="loadMore()">
+    Load more
+  </button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let page = 1, busy = false, totalPages = 1, myVideosMode = false;
+
+// Show toggle only when logged in
+async function initHome() {
+  const t = localStorage.getItem('sv_token');
+  if (t) {
+    try {
+      const r = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + t } });
+      if (r.ok) {
+        document.getElementById('toggle-wrap').style.display = 'flex';
+      }
+    } catch(e) {}
+  }
+  loadVideos(true);
+}
+
+function onToggle(checked) {
+  myVideosMode = checked;
+  document.getElementById('lbl-all').classList.toggle('active', !checked);
+  document.getElementById('lbl-mine').classList.toggle('active', checked);
+  document.getElementById('feed-title').textContent = checked ? 'My Videos' : 'Latest Videos';
+  loadVideos(true);
+}
+
+async function loadVideos(reset=false) {
+  if (busy) return;
+  busy = true;
+  if (reset) {
+    page = 1;
+    document.getElementById('video-grid').innerHTML = '<div class="spinner-wrap">Loading...</div>';
+  }
+  try {
+    let url;
+    if (myVideosMode) {
+      // Get current user's username then fetch their channel
+      const t = localStorage.getItem('sv_token');
+      const me = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + t } });
+      const md = await me.json();
+      const username = md.user.username;
+      const r = await fetch(`/api/channel/${username}`);
+      const d = await r.json();
+      const grid = document.getElementById('video-grid');
+      if (reset) grid.innerHTML = '';
+      const videos = d.videos || [];
+      if (!videos.length) {
+        grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>You have not uploaded any videos yet.</p></div>';
+      } else {
+        videos.forEach(v => {
+          const vWithUploader = { ...v, uploader: { id: md.user.id, username: md.user.username } };
+          const el = document.createElement('div');
+          el.innerHTML = videoCard(vWithUploader);
+          grid.appendChild(el.firstElementChild);
+        });
+      }
+      document.getElementById('btn-more').style.display = 'none';
+    } else {
+      const r = await fetch(`/api/videos?page=${page}&limit=12`);
+      const d = await r.json();
+      totalPages = d.pages;
+      const grid = document.getElementById('video-grid');
+      if (reset) grid.innerHTML = '';
+      if (!d.videos.length && reset) {
+        grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No videos yet. Be the first to upload!</p></div>';
+      } else {
+        d.videos.forEach(v => {
+          const el = document.createElement('div');
+          el.innerHTML = videoCard(v);
+          grid.appendChild(el.firstElementChild);
+        });
+      }
+      document.getElementById('btn-more').style.display = page < totalPages ? 'inline-block' : 'none';
+    }
+  } catch(e) { console.error(e); }
+  busy = false;
+}
+
+function loadMore() { page++; loadVideos(); }
+initHome();
+</script>
+{% endblock %}
