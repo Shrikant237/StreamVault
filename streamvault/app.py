@@ -24,7 +24,7 @@ MAX_VIDEO_MB  = 500
 
 # PostgreSQL connection — change YOUR_PASSWORD to your postgres password
 DB_USER     = os.environ.get("DB_USER",     "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "YOUR_PASSWORD")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "9909")
 DB_HOST     = os.environ.get("DB_HOST",     "localhost")
 DB_PORT     = os.environ.get("DB_PORT",     "5432")
 DB_NAME     = os.environ.get("DB_NAME",     "streamvault")
