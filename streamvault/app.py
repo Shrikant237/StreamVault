@@ -24,7 +24,7 @@ MAX_VIDEO_MB  = 500
 
 # PostgreSQL connection — change YOUR_PASSWORD to your postgres password
 DB_USER     = os.environ.get("DB_USER",     "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "9909")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "YOUR_PASSWORD")
 DB_HOST     = os.environ.get("DB_HOST",     "localhost")
 DB_PORT     = os.environ.get("DB_PORT",     "5432")
 DB_NAME     = os.environ.get("DB_NAME",     "streamvault")
@@ -87,18 +87,37 @@ class Video(db.Model):
     views       = db.Column(db.Integer, default=0)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
 
-    def to_dict(self, include_uploader=True):
+    def to_dict(self, include_uploader=True, user_id=None):
+        likes    = Like.query.filter_by(video_id=self.id, is_like=True).count()
+        dislikes = Like.query.filter_by(video_id=self.id, is_like=False).count()
+        user_reaction = None
+        if user_id:
+            existing = Like.query.filter_by(video_id=self.id, user_id=user_id).first()
+            if existing:
+                user_reaction = "like" if existing.is_like else "dislike"
         d = {
             "id": self.id, "title": self.title, "description": self.description,
             "thumbnail": f"/uploads/{self.thumbnail}" if self.thumbnail else None,
             "video_url": f"/stream/{self.id}",
             "views": self.views, "created_at": self.created_at.isoformat(),
             "user_id": self.user_id,
+            "likes": likes, "dislikes": dislikes, "user_reaction": user_reaction,
         }
         if include_uploader and self.uploader:
             d["uploader"] = {"id": self.uploader.id, "username": self.uploader.username, "avatar": self.uploader.avatar}
         return d
 
+
+
+
+class Like(db.Model):
+    __tablename__ = "likes"
+    id         = db.Column(db.Integer, primary_key=True)
+    user_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    video_id   = db.Column(db.String(36), db.ForeignKey("videos.id"), nullable=False)
+    is_like    = db.Column(db.Boolean, nullable=False)  # True = like, False = dislike
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("user_id", "video_id", name="unique_user_video_like"),)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def allowed_file(filename, allowed):
@@ -292,7 +311,42 @@ def get_video(video_id):
     video = Video.query.get_or_404(video_id)
     video.views += 1
     db.session.commit()
-    return jsonify({"video": video.to_dict()})
+    uid = None
+    try:
+        from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+        verify_jwt_in_request(optional=True)
+        identity = get_jwt_identity()
+        if identity: uid = int(identity)
+    except: pass
+    return jsonify({"video": video.to_dict(user_id=uid)})
+
+@app.route("/api/videos/<video_id>/like", methods=["POST"])
+@jwt_required()
+def like_video(video_id):
+    uid      = int(get_jwt_identity())
+    data     = request.get_json() or {}
+    is_like  = data.get("is_like")  # True = like, False = dislike
+    if is_like is None:
+        return jsonify({"error": "is_like field required (true or false)"}), 400
+    video = Video.query.get_or_404(video_id)
+    existing = Like.query.filter_by(user_id=uid, video_id=video_id).first()
+    if existing:
+        if existing.is_like == is_like:
+            # clicking same button again = remove reaction
+            db.session.delete(existing)
+            db.session.commit()
+            return jsonify({"message": "Reaction removed", "user_reaction": None,
+                            "likes": Like.query.filter_by(video_id=video_id, is_like=True).count(),
+                            "dislikes": Like.query.filter_by(video_id=video_id, is_like=False).count()})
+        else:
+            # switch reaction
+            existing.is_like = is_like
+    else:
+        db.session.add(Like(user_id=uid, video_id=video_id, is_like=is_like))
+    db.session.commit()
+    return jsonify({"message": "ok", "user_reaction": "like" if is_like else "dislike",
+                    "likes": Like.query.filter_by(video_id=video_id, is_like=True).count(),
+                    "dislikes": Like.query.filter_by(video_id=video_id, is_like=False).count()})
 
 @app.route("/api/videos/<video_id>", methods=["DELETE"])
 @jwt_required()
