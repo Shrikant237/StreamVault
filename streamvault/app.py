@@ -67,11 +67,18 @@ class User(db.Model):
 
     def set_password(self, p):  self.password_hash = bcrypt.generate_password_hash(p).decode()
     def check_password(self, p): return bcrypt.check_password_hash(self.password_hash, p)
-    def to_dict(self):
+    def to_dict(self, viewer_id=None):
+        sub_count = Subscription.query.filter_by(channel_id=self.id).count()
+        is_subscribed = False
+        if viewer_id:
+            is_subscribed = bool(Subscription.query.filter_by(
+                subscriber_id=viewer_id, channel_id=self.id).first())
         return {
             "id": self.id, "username": self.username, "email": self.email,
             "avatar": self.avatar, "bio": self.bio,
             "video_count": len(self.videos),
+            "subscriber_count": sub_count,
+            "is_subscribed": is_subscribed,
             "created_at": self.created_at.isoformat()
         }
 
@@ -118,6 +125,15 @@ class Like(db.Model):
     is_like    = db.Column(db.Boolean, nullable=False)  # True = like, False = dislike
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     __table_args__ = (db.UniqueConstraint("user_id", "video_id", name="unique_user_video_like"),)
+
+
+class Subscription(db.Model):
+    __tablename__ = "subscriptions"
+    id            = db.Column(db.Integer, primary_key=True)
+    subscriber_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    channel_id    = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint("subscriber_id", "channel_id", name="unique_subscription"),)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def allowed_file(filename, allowed):
@@ -368,7 +384,43 @@ def delete_video(video_id):
 def get_channel(username):
     user   = User.query.filter_by(username=username).first_or_404()
     videos = Video.query.filter_by(user_id=user.id).order_by(Video.created_at.desc()).all()
-    return jsonify({"user": user.to_dict(), "videos": [v.to_dict(include_uploader=False) for v in videos]})
+    viewer_id = None
+    try:
+        verify_jwt_in_request(optional=True)
+        identity = get_jwt_identity()
+        if identity: viewer_id = int(identity)
+    except: pass
+    return jsonify({"user": user.to_dict(viewer_id=viewer_id),
+                    "videos": [v.to_dict(include_uploader=False) for v in videos]})
+
+@app.route("/api/channel/<username>/subscribe", methods=["POST"])
+@jwt_required()
+def toggle_subscribe(username):
+    uid     = int(get_jwt_identity())
+    channel = User.query.filter_by(username=username).first_or_404()
+    if channel.id == uid:
+        return jsonify({"error": "You cannot subscribe to your own channel."}), 400
+    existing = Subscription.query.filter_by(subscriber_id=uid, channel_id=channel.id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"subscribed": False,
+                        "subscriber_count": Subscription.query.filter_by(channel_id=channel.id).count()})
+    db.session.add(Subscription(subscriber_id=uid, channel_id=channel.id))
+    db.session.commit()
+    return jsonify({"subscribed": True,
+                    "subscriber_count": Subscription.query.filter_by(channel_id=channel.id).count()})
+
+@app.route("/api/subscriptions/feed", methods=["GET"])
+@jwt_required()
+def subscription_feed():
+    uid  = int(get_jwt_identity())
+    subs = Subscription.query.filter_by(subscriber_id=uid).all()
+    channel_ids = [s.channel_id for s in subs]
+    if not channel_ids:
+        return jsonify({"videos": []})
+    videos = Video.query.filter(Video.user_id.in_(channel_ids))                        .order_by(Video.created_at.desc()).limit(24).all()
+    return jsonify({"videos": [v.to_dict() for v in videos]})
 
 
 # ── Boot ───────────────────────────────────────────────────────────────────────
