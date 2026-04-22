@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Watch — StreamVault{% endblock %}
- 
+
 {% block head %}
 <style>
 .watch-layout{display:grid;grid-template-columns:1fr 340px;gap:1.5rem;max-width:1300px}
@@ -32,6 +32,13 @@ video{width:100%;height:100%;display:block}
               display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .mini-meta .mc{font-size:.75rem;color:var(--muted);margin-top:.15rem}
 @media(max-width:900px){.watch-layout{grid-template-columns:1fr}}
+.btn-subscribe{padding:.4rem 1.1rem;border-radius:20px;border:none;font-size:.82rem;
+  font-weight:600;cursor:pointer;font-family:inherit;transition:.15s;margin-left:.5rem}
+.btn-subscribe.sub{background:var(--s2);border:1px solid var(--border);color:var(--text)}
+.btn-subscribe.sub:hover{background:#fdf0f0;border-color:#f5c6c0;color:#b03a2e}
+.btn-subscribe.unsub{background:var(--accent);color:#fff}
+.btn-subscribe.unsub:hover{background:var(--accent-h)}
+
 .like-bar{display:flex;align-items:center;gap:.5rem;margin:.75rem 0}
 .btn-like,.btn-dislike{display:flex;align-items:center;gap:.4rem;padding:.45rem 1rem;
   border-radius:20px;border:1px solid var(--border);background:var(--s2);
@@ -41,10 +48,10 @@ video{width:100%;height:100%;display:block}
 .btn-like.active{background:#5a6e3a;color:#fff;border-color:#5a6e3a}
 .btn-dislike.active{background:#b03a2e;color:#fff;border-color:#b03a2e}
 .btn-like:disabled,.btn-dislike:disabled{opacity:.5;cursor:not-allowed}
- 
+
 </style>
 {% endblock %}
- 
+
 {% block content %}
 <div class="watch-layout">
   <div>
@@ -59,11 +66,11 @@ video{width:100%;height:100%;display:block}
   </div>
 </div>
 {% endblock %}
- 
+
 {% block scripts %}
 <script>
 const videoId = location.pathname.split('/').pop();
- 
+
 async function loadVideo(){
   try{
     const r = await fetch(`/api/videos/${videoId}`);
@@ -95,7 +102,7 @@ async function loadVideo(){
       ${v.description ? `<div class="v-desc" id="vdesc" onclick="this.classList.toggle('open')">${v.description}</div>` : ''}`;
   } catch(e){ console.error(e); }
 }
- 
+
 async function loadMore(){
   try{
     const r = await fetch('/api/videos?limit=10');
@@ -110,14 +117,14 @@ async function loadMore(){
     }).join('') || '<div style="color:var(--muted);font-size:.85rem">No other videos.</div>';
   } catch(e){}
 }
- 
+
 async function delVideo(id){
   if(!confirm('Delete this video permanently?')) return;
   const r = await fetch(`/api/videos/${id}`,{method:'DELETE',headers:{'Authorization':'Bearer '+getToken()}});
   if(r.ok) window.location.href='/home'; else alert('Failed to delete.');
 }
- 
- 
+
+
 async function reactVideo(isLike) {
   const t = getToken();
   if(!t){ alert('Please sign in to like or dislike videos.'); return; }
@@ -142,8 +149,25 @@ async function reactVideo(isLike) {
   if(btnL) btnL.disabled = false;
   if(btnD) btnD.disabled = false;
 }
+
+async function toggleSubWatch(uname){
+  if(!getToken()){ alert('Please sign in to subscribe.'); return; }
+  const btn = document.getElementById('btn-sub-watch');
+  if(btn) btn.disabled = true;
+  try{
+    const r = await fetch('/api/channel/'+uname+'/subscribe', {
+      method:'POST', headers:{'Authorization':'Bearer '+getToken()}
+    });
+    const d = await r.json();
+    if(r.ok && btn){
+      btn.textContent = d.subscribed ? '✓ Subscribed' : 'Subscribe';
+      btn.className   = 'btn-subscribe ' + (d.subscribed ? 'sub' : 'unsub');
+    }
+  } catch(e){ console.error(e); }
+  if(btn) btn.disabled = false;
+}
+
 loadVideo();
 loadMore();
 </script>
 {% endblock %}
- 
