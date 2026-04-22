@@ -12,6 +12,14 @@
 .ch-bio{color:var(--muted);font-size:.875rem;margin-top:.4rem;max-width:480px}
 .ch-joined{color:var(--muted2);font-size:.78rem;margin-top:.35rem}
 @media(max-width:540px){.ch-header{flex-direction:column;text-align:center}}
+.btn-subscribe{padding:.55rem 1.4rem;border-radius:20px;border:none;font-size:.875rem;
+  font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-subscribe.sub{background:var(--s2);border:1px solid var(--border);color:var(--text)}
+.btn-subscribe.sub:hover{background:#fdf0f0;border-color:#f5c6c0;color:#b03a2e}
+.btn-subscribe.unsub{background:var(--accent);color:#fff}
+.btn-subscribe.unsub:hover{background:var(--accent-h)}
+.sub-count{font-size:.82rem;color:var(--muted);margin-top:.2rem}
+
 </style>
 {% endblock %}
 
