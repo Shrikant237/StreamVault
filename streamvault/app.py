@@ -24,7 +24,7 @@ MAX_VIDEO_MB  = 500
 
 # PostgreSQL connection — change YOUR_PASSWORD to your postgres password
 DB_USER     = os.environ.get("DB_USER",     "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "9909")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "YOUR_PASSWORD")
 DB_HOST     = os.environ.get("DB_HOST",     "localhost")
 DB_PORT     = os.environ.get("DB_PORT",     "5432")
 DB_NAME     = os.environ.get("DB_NAME",     "streamvault")
@@ -421,6 +421,24 @@ def subscription_feed():
         return jsonify({"videos": []})
     videos = Video.query.filter(Video.user_id.in_(channel_ids))                        .order_by(Video.created_at.desc()).limit(24).all()
     return jsonify({"videos": [v.to_dict() for v in videos]})
+
+
+@app.route("/api/subscriptions/channels", methods=["GET"])
+@jwt_required()
+def subscribed_channels():
+    uid  = int(get_jwt_identity())
+    subs = Subscription.query.filter_by(subscriber_id=uid).order_by(Subscription.created_at.desc()).all()
+    channels = []
+    for s in subs:
+        user = User.query.get(s.channel_id)
+        if user:
+            channels.append({
+                "id": user.id,
+                "username": user.username,
+                "subscriber_count": Subscription.query.filter_by(channel_id=user.id).count(),
+                "video_count": len(user.videos)
+            })
+    return jsonify({"channels": channels})
 
 
 # ── Boot ───────────────────────────────────────────────────────────────────────
