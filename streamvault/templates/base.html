@@ -104,6 +104,7 @@
 <aside class="sidebar">
   <a href="/home" class="{% block sb_home %}{% endblock %}"><span class="icon">🏠</span>Home</a>
   <a href="/search" class="{% block sb_search %}{% endblock %}"><span class="icon">🔍</span>Explore</a>
+  <a href="/home#subscriptions" id="sb-subs" style="display:none" class="{% block sb_subs %}{% endblock %}"><span class="icon">🔔</span>Subscriptions</a>
   <div id="sb-user-links" style="display:none">
     <div class="sb-section">You</div>
     <a href="#" id="sb-channel"><span class="icon">👤</span>Your Channel</a>
@@ -143,6 +144,7 @@ function updateUI(){
     document.getElementById('nav-signed-out').style.display = 'none';
     document.getElementById('nav-signed-in').style.display  = 'flex';
     document.getElementById('sb-user-links').style.display  = 'block';
+    document.getElementById('sb-subs').style.display        = 'flex';
     const av = document.getElementById('nav-avatar');
     av.textContent = currentUser.username[0].toUpperCase();
     av.href = '/channel/' + currentUser.username;
@@ -151,6 +153,7 @@ function updateUI(){
     document.getElementById('nav-signed-out').style.display = 'block';
     document.getElementById('nav-signed-in').style.display  = 'none';
     document.getElementById('sb-user-links').style.display  = 'none';
+    document.getElementById('sb-subs').style.display        = 'none';
   }
 }
 
