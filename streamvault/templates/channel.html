@@ -6,61 +6,118 @@
 .ch-header{background:var(--surface);border:1px solid var(--border);border-radius:14px;
            padding:1.75rem;margin-bottom:1.75rem;display:flex;align-items:center;gap:1.25rem}
 .ch-av{width:72px;height:72px;border-radius:50%;background:var(--accent);flex-shrink:0;
-       display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700}
+       display:flex;align-items:center;justify-content:center;font-size:1.75rem;font-weight:700;color:#fff}
 .ch-name{font-size:1.4rem;font-weight:700}
 .ch-stats{color:var(--muted);font-size:.875rem;margin-top:.3rem}
 .ch-bio{color:var(--muted);font-size:.875rem;margin-top:.4rem;max-width:480px}
 .ch-joined{color:var(--muted2);font-size:.78rem;margin-top:.35rem}
-@media(max-width:540px){.ch-header{flex-direction:column;text-align:center}}
-.btn-subscribe{padding:.55rem 1.4rem;border-radius:20px;border:none;font-size:.875rem;
-  font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
-.btn-subscribe.sub{background:var(--s2);border:1px solid var(--border);color:var(--text)}
-.btn-subscribe.sub:hover{background:#fdf0f0;border-color:#f5c6c0;color:#b03a2e}
-.btn-subscribe.unsub{background:var(--accent);color:#fff}
+.ch-sub-row{display:flex;align-items:center;gap:1rem;margin-top:.75rem;flex-wrap:wrap}
+.sub-count{font-size:.85rem;color:var(--muted)}
+.btn-subscribe{padding:.55rem 1.4rem;border-radius:20px;border:1px solid transparent;
+               font-size:.875rem;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.btn-subscribe.unsub{background:var(--accent);color:#fff;border-color:var(--accent)}
 .btn-subscribe.unsub:hover{background:var(--accent-h)}
-.sub-count{font-size:.82rem;color:var(--muted);margin-top:.2rem}
-
+.btn-subscribe.sub{background:var(--s2);border-color:var(--border);color:var(--text)}
+.btn-subscribe.sub:hover{background:#fdf0f0;border-color:#f5c6c0;color:#b03a2e}
+.btn-subscribe:disabled{opacity:.6;cursor:not-allowed}
+@media(max-width:540px){.ch-header{flex-direction:column;text-align:center}}
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="ch-header" class="ch-header"><span style="color:var(--muted)">Loading...</span></div>
+<div id="ch-header" class="ch-header">
+  <span style="color:var(--muted)">Loading...</span>
+</div>
 <h2 class="section-title" id="vids-title" style="display:none">Videos</h2>
 <div class="video-grid" id="ch-grid"></div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-const username = location.pathname.split('/').pop();
+const chUsername = location.pathname.split('/').pop();
+let chUser = null;
 
-async function loadChannel(){
-  try{
-    const r = await fetch(`/api/channel/${username}`);
-    if(!r.ok){ document.getElementById('ch-header').innerHTML='<span style="color:var(--muted)">Channel not found.</span>'; return; }
-    const {user:u, videos} = await r.json();
+function fmtSubs(n) {
+  if (!n || n === 0) return '0 subscribers';
+  if (n >= 1e6) return (n/1e6).toFixed(1) + 'M subscribers';
+  if (n >= 1e3) return (n/1e3).toFixed(1) + 'K subscribers';
+  return n + (n === 1 ? ' subscriber' : ' subscribers');
+}
+
+async function loadChannel() {
+  try {
+    const headers = {};
+    if (getToken()) headers['Authorization'] = 'Bearer ' + getToken();
+    const r = await fetch(`/api/channel/${chUsername}`, { headers });
+    if (!r.ok) {
+      document.getElementById('ch-header').innerHTML = '<span style="color:var(--muted)">Channel not found.</span>';
+      return;
+    }
+    const { user: u, videos } = await r.json();
+    chUser = u;
     document.title = u.username + ' — StreamVault';
-    const joined = new Date(u.created_at).toLocaleDateString('en-US',{year:'numeric',month:'long'});
+    const joined   = new Date(u.created_at).toLocaleDateString('en-US', {year:'numeric', month:'long'});
+    const isOwn    = currentUser && currentUser.id === u.id;
+    const isLogged = !!getToken();
+
     document.getElementById('ch-header').innerHTML = `
       <div class="ch-av">${u.username[0].toUpperCase()}</div>
-      <div>
+      <div style="flex:1">
         <div class="ch-name">${u.username}</div>
-        <div class="ch-stats">${u.video_count} video${u.video_count!==1?'s':''}</div>
+        <div class="ch-stats">${u.video_count} video${u.video_count !== 1 ? 's' : ''}</div>
         ${u.bio ? `<div class="ch-bio">${u.bio}</div>` : ''}
         <div class="ch-joined">Joined ${joined}</div>
+        <div class="ch-sub-row">
+          <span class="sub-count" id="sub-count">${fmtSubs(u.subscriber_count)}</span>
+          ${!isOwn ? `
+            <button
+              class="btn-subscribe ${u.is_subscribed ? 'sub' : 'unsub'}"
+              id="btn-sub"
+              onclick="toggleSub()"
+              title="${isLogged ? '' : 'Sign in to subscribe'}">
+              ${u.is_subscribed ? '✓ Subscribed' : '+ Subscribe'}
+            </button>` : ''}
+        </div>
       </div>`;
+
     document.getElementById('vids-title').style.display = 'block';
     const grid = document.getElementById('ch-grid');
-    if(!videos.length){
+    if (!videos.length) {
       grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No videos uploaded yet.</p></div>';
     } else {
       videos.forEach(v => {
         const el = document.createElement('div');
-        el.innerHTML = videoCard({...v, uploader:{id:u.id, username:u.username}});
+        el.innerHTML = videoCard({...v, uploader: {id: u.id, username: u.username}});
         grid.appendChild(el.firstElementChild);
       });
     }
-  } catch(e){ console.error(e); }
+  } catch(e) { console.error(e); }
 }
+
+async function toggleSub() {
+  if (!getToken()) { alert('Please sign in to subscribe.'); return; }
+  const btn = document.getElementById('btn-sub');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await fetch(`/api/channel/${chUsername}/subscribe`, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
+    const d = await r.json();
+    if (r.ok) {
+      if (btn) {
+        btn.textContent = d.subscribed ? '✓ Subscribed' : '+ Subscribe';
+        btn.className   = 'btn-subscribe ' + (d.subscribed ? 'sub' : 'unsub');
+      }
+      const sc = document.getElementById('sub-count');
+      if (sc) sc.textContent = fmtSubs(d.subscriber_count);
+    } else {
+      alert(d.error || 'Something went wrong.');
+    }
+  } catch(e) { console.error(e); }
+  if (btn) btn.disabled = false;
+}
+
 loadChannel();
 </script>
 {% endblock %}
