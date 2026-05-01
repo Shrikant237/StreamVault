@@ -4,26 +4,69 @@
 
 {% block head %}
 <style>
-.feed-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
-.feed-header h2{font-size:1.15rem;font-weight:600;margin:0}
+/* ── Subscribed channels strip ───────────────────────── */
+#subs-section{margin-bottom:2rem;display:none}
+#subs-section h3{font-size:.85rem;font-weight:600;color:var(--muted);
+                 text-transform:uppercase;letter-spacing:.06em;margin-bottom:1rem}
+.subs-strip{display:flex;gap:1.25rem;overflow-x:auto;padding-bottom:.5rem;scrollbar-width:none}
+.subs-strip::-webkit-scrollbar{display:none}
+.sub-chip{display:flex;flex-direction:column;align-items:center;gap:.45rem;
+          text-decoration:none;color:inherit;flex-shrink:0;width:70px}
+.sub-chip:hover .sub-av{transform:scale(1.08);box-shadow:0 0 0 3px var(--accent)}
+.sub-av{width:56px;height:56px;border-radius:50%;background:var(--accent);
+        display:flex;align-items:center;justify-content:center;
+        font-size:1.35rem;font-weight:700;color:#fff;
+        transition:.2s;border:2px solid var(--border)}
+.sub-av.has-new{border-color:var(--accent);box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
+.sub-name{font-size:.72rem;color:var(--muted);text-align:center;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
 
-/* toggle switch */
+/* ── Subscriptions feed section ──────────────────────── */
+#sub-feed-section{display:none;margin-bottom:2.5rem}
+#sub-feed-section h3{font-size:1rem;font-weight:600;margin-bottom:1rem;
+                     display:flex;align-items:center;gap:.5rem}
+#sub-feed-section h3 span{font-size:.75rem;background:var(--accent);
+                           color:#fff;border-radius:20px;padding:.15rem .55rem}
+.sub-feed-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1.1rem}
+
+/* ── feed header / toggle ────────────────────────────── */
+.feed-header{display:flex;align-items:center;justify-content:space-between;
+             margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
+.feed-header h2{font-size:1.1rem;font-weight:600;margin:0}
 .toggle-wrap{display:flex;align-items:center;gap:.65rem;background:var(--s2);
              border:1px solid var(--border);border-radius:20px;padding:.4rem .85rem}
 .toggle-label{font-size:.82rem;color:var(--muted);white-space:nowrap}
 .toggle-label.active{color:var(--text);font-weight:500}
 .switch{position:relative;width:42px;height:24px;flex-shrink:0}
 .switch input{opacity:0;width:0;height:0;position:absolute}
-.slider{position:absolute;inset:0;background:var(--border);border-radius:24px;
-        cursor:pointer;transition:.25s}
+.slider{position:absolute;inset:0;background:var(--border);border-radius:24px;cursor:pointer;transition:.25s}
 .slider::before{content:'';position:absolute;width:18px;height:18px;left:3px;top:3px;
                 background:#fff;border-radius:50%;transition:.25s}
 .switch input:checked + .slider{background:var(--accent)}
-.switch input:checked + .slider::before{transform:translateX(18px);background:#fff}
+.switch input:checked + .slider::before{transform:translateX(18px)}
+
+.divider{border:none;border-top:1px solid var(--border);margin:1.5rem 0}
 </style>
 {% endblock %}
 
 {% block content %}
+
+<!-- Subscribed channels strip -->
+<div id="subscriptions" style="scroll-margin-top:80px">
+  <h3>Subscriptions</h3>
+  <div class="subs-strip" id="subs-strip"></div>
+</div>
+
+<hr class="divider" id="sub-divider" style="display:none"/>
+
+<!-- Subscriptions video feed -->
+<div id="sub-feed-section">
+  <h3>From channels you follow <span id="sub-feed-count"></span></h3>
+  <div class="sub-feed-grid" id="sub-feed-grid"></div>
+  <hr class="divider"/>
+</div>
+
+<!-- Main feed -->
 <div class="feed-header">
   <h2 id="feed-title">Latest Videos</h2>
   <div class="toggle-wrap" id="toggle-wrap" style="display:none">
@@ -50,23 +93,72 @@
 
 {% block scripts %}
 <script>
-let page = 1, busy = false, totalPages = 1, myVideosMode = false;
+let page=1, busy=false, totalPages=1, myVideosMode=false;
 
-// Show toggle only when logged in
-async function initHome() {
-  const t = localStorage.getItem('sv_token');
-  if (t) {
-    try {
-      const r = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + t } });
-      if (r.ok) {
+async function initHome(){
+  const t = getToken();
+  if(t){
+    try{
+      const r = await fetch('/api/me', {headers:{'Authorization':'Bearer '+t}});
+      if(r.ok){
         document.getElementById('toggle-wrap').style.display = 'flex';
+        await loadSubscriptions();
       }
-    } catch(e) {}
+    } catch(e){}
   }
   loadVideos(true);
 }
 
-function onToggle(checked) {
+async function loadSubscriptions(){
+  const t = getToken();
+  if(!t) return;
+  try{
+    // Load subscribed channels list
+    const r = await fetch('/api/subscriptions/channels', {
+      headers: {'Authorization':'Bearer '+t}
+    });
+    if(!r.ok) return;
+    const d = await r.json();
+    const channels = d.channels || [];
+    if(!channels.length) return;
+
+    // Show channels strip
+    const strip   = document.getElementById('subs-strip');
+    const section = document.getElementById('subscriptions');
+    section.style.display = 'block';
+    document.getElementById('sub-divider').style.display = 'block';
+
+    strip.innerHTML = channels.map(ch => `
+      <a href="/channel/${ch.username}" class="sub-chip">
+        <div class="sub-av">${ch.username[0].toUpperCase()}</div>
+        <span class="sub-name">${ch.username}</span>
+      </a>`).join('');
+
+    // Load their videos feed
+    const fr = await fetch('/api/subscriptions/feed', {
+      headers: {'Authorization':'Bearer '+t}
+    });
+    if(!fr.ok) return;
+    const fd = await fr.json();
+    const videos = fd.videos || [];
+    if(!videos.length) return;
+
+    const feedSection = document.getElementById('sub-feed-section');
+    const feedGrid    = document.getElementById('sub-feed-grid');
+    feedSection.style.display = 'block';
+    document.getElementById('sub-feed-count').textContent = videos.length;
+
+    feedGrid.innerHTML = '';
+    videos.slice(0, 8).forEach(v => {
+      const el = document.createElement('div');
+      el.innerHTML = videoCard(v);
+      feedGrid.appendChild(el.firstElementChild);
+    });
+
+  } catch(e){ console.error(e); }
+}
+
+function onToggle(checked){
   myVideosMode = checked;
   document.getElementById('lbl-all').classList.toggle('active', !checked);
   document.getElementById('lbl-mine').classList.toggle('active', checked);
@@ -74,33 +166,28 @@ function onToggle(checked) {
   loadVideos(true);
 }
 
-async function loadVideos(reset=false) {
-  if (busy) return;
+async function loadVideos(reset=false){
+  if(busy) return;
   busy = true;
-  if (reset) {
+  if(reset){
     page = 1;
     document.getElementById('video-grid').innerHTML = '<div class="spinner-wrap">Loading...</div>';
   }
-  try {
-    let url;
-    if (myVideosMode) {
-      // Get current user's username then fetch their channel
-      const t = localStorage.getItem('sv_token');
-      const me = await fetch('/api/me', { headers: { 'Authorization': 'Bearer ' + t } });
+  try{
+    if(myVideosMode){
+      const t  = getToken();
+      const me = await fetch('/api/me', {headers:{'Authorization':'Bearer '+t}});
       const md = await me.json();
-      const username = md.user.username;
-      const r = await fetch(`/api/channel/${username}`);
-      const d = await r.json();
+      const r  = await fetch(`/api/channel/${md.user.username}`);
+      const d  = await r.json();
       const grid = document.getElementById('video-grid');
-      if (reset) grid.innerHTML = '';
-      const videos = d.videos || [];
-      if (!videos.length) {
+      if(reset) grid.innerHTML = '';
+      if(!d.videos.length){
         grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>You have not uploaded any videos yet.</p></div>';
       } else {
-        videos.forEach(v => {
-          const vWithUploader = { ...v, uploader: { id: md.user.id, username: md.user.username } };
+        d.videos.forEach(v => {
           const el = document.createElement('div');
-          el.innerHTML = videoCard(vWithUploader);
+          el.innerHTML = videoCard({...v, uploader:{id:md.user.id, username:md.user.username}});
           grid.appendChild(el.firstElementChild);
         });
       }
@@ -110,8 +197,8 @@ async function loadVideos(reset=false) {
       const d = await r.json();
       totalPages = d.pages;
       const grid = document.getElementById('video-grid');
-      if (reset) grid.innerHTML = '';
-      if (!d.videos.length && reset) {
+      if(reset) grid.innerHTML = '';
+      if(!d.videos.length && reset){
         grid.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>No videos yet. Be the first to upload!</p></div>';
       } else {
         d.videos.forEach(v => {
@@ -122,11 +209,11 @@ async function loadVideos(reset=false) {
       }
       document.getElementById('btn-more').style.display = page < totalPages ? 'inline-block' : 'none';
     }
-  } catch(e) { console.error(e); }
+  } catch(e){ console.error(e); }
   busy = false;
 }
 
-function loadMore() { page++; loadVideos(); }
+function loadMore(){ page++; loadVideos(); }
 initHome();
 </script>
 {% endblock %}
